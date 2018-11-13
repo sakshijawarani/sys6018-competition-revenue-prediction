@@ -12,6 +12,7 @@ Jingyi Luo:
   
 Sakshi Jawarani:
   * Data preprocessing, Data exploration and feature extraction
-  * Spline model
-  * GitHub and kaggle coordinator
-  * Write up additions
+  * Spline model, Linear model 
+  * GitHub coordinator
+  
+
