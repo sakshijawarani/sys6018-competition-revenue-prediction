@@ -1,11 +1,11 @@
-# install.packages('MASS')
-# install.packages('jsonlite')
-# install.packages('tidyverse')
-# install.packages('dplyr')
-# install.packages("gbm")
-# install.packages("lubridate")
-# install.packages('datetime')
-# install.packages('randomForest')
+#install.packages('MASS')
+#install.packages('jsonlite')
+#install.packages('tidyverse')
+#install.packages('dplyr')
+#install.packages("gbm")
+#install.packages("lubridate")
+#install.packages('datetime')
+#install.packages('randomForest')
 library(tidyverse)
 library(jsonlite)
 library(MASS)
@@ -15,26 +15,25 @@ library(gbm)
 library(datetime)
 library(randomForest)
 
+# setwd("~/Documents/Fallsem/SYS/kagglecomp4")
 setwd("~/Desktop/SYS6018/kaggle_competition/04_customer_revenue")
 
 # use the following commands to generate train_small.csv
-# unzip train_v2.csv.zip
-# unzip test_v2.csv.zip
 # pip install subsample
-# subsample -n 400000 train_v2.csv -r > train_small.csv
-
+# subsample -n 800000 train_v2.csv -r > train_small.csv
 training_data <- read_csv(file = "train_small.csv", col_names=T)  %>% 
   mutate(DataSplit = "Training") 
 
 testing_data <- read_csv(file = "test_v2.csv", col_names=T)  %>% 
   mutate(DataSplit = "Testing") 
 
+
 full_data <- bind_rows(testing_data, training_data)
 
 # free memory
 rm(training_data)
 rm(testing_data)
-gc() # garbage collect to free memory
+gc()
 
 #j<- full_data  %>% dplyr::select(trafficSource, totals, geoNetwork, device) 
 
@@ -43,6 +42,7 @@ ParseJSONColumn <- function(x)  {
     fromJSON(flatten = T) %>% 
     as.tibble()
 }
+
 
 JSONcolumn_data <- full_data  %>% 
   dplyr::select(trafficSource, totals, geoNetwork, device)  %>% 
@@ -65,6 +65,7 @@ full_data_wJSON  %>%
                    "language"
   ))  %>% 
   tally()
+
 
 full_data_wJSON <- full_data_wJSON  %>% 
   dplyr::select(-device,
@@ -94,7 +95,6 @@ save(full_data_wJSON,file = "full_data_wJSON.Rdata")
 
 
 ###### cleaning data
-
 full_data_wJSON[full_data_wJSON$browser == "Safari (in-app)", "browser"] <- "Safari"
 full_data_wJSON[(full_data_wJSON$browser == "Opera Mini") &
                   (full_data_wJSON$browser == "SAMSUNG-GT-C3322 Opera") &
@@ -107,6 +107,7 @@ full_data_wJSON[(full_data_wJSON$browser!= "Safari") &
                   (full_data_wJSON$browser!= "Opera") &
                   (full_data_wJSON$browser!="Internet Explorer") &
                   (full_data_wJSON$browser != "Firefox"), "browser"] <- "Other"
+
 
 full_data_wJSON[(full_data_wJSON$operatingSystem!= "Android") &
                   (full_data_wJSON$operatingSystem!="Chrome OS") &
@@ -133,36 +134,11 @@ full_data_wJSON[(full_data_wJSON$country!= "United States") &
                   (full_data_wJSON$country != "Taiwan") &
                   (full_data_wJSON$country != "Turkey"), "country"] <- "Other"
 
-# reduce factor levels to 50 if more than that
 for (i in 1:ncol(full_data_wJSON)){
   full_data_wJSON[,i] <- unlist(full_data_wJSON[,i])
 }
 
 
-max_level <- 50
-factor_col <- c()
-for (an_index in 1:ncol(full_data_wJSON)) {
-  if (is.factor(unlist(full_data_wJSON[1,an_index]))) {
-    count_level <- length(unlist(unique(full_data_wJSON[,an_index])))
-    if (count_level > max_level) {
-      factor_col <- c(factor_col, an_index)
-    }
-  }
-}
-
-for (an_index in factor_col) {
-  count_level <- summary(full_data_wJSON[,an_index], maxsum=max_level)
-  top_count <- c()
-  for (a in count_level){
-    top_count <- c(top_count, trimws(unlist(strsplit(a,':'))[1]))
-  }
-  few_rows <- !(unlist(full_data_wJSON[,an_index]) %in% top_count)
-  print(sum(few_rows))
-  print(names(full_data_wJSON[few_rows,an_index]))
-  full_data_wJSON[,an_index] <- as.character(unlist(full_data_wJSON[,an_index]))
-  full_data_wJSON[few_rows,an_index] <- 'Other'
-  full_data_wJSON[,an_index] <- as.factor(unlist(full_data_wJSON[,an_index]))
-}
 
 # transactionRevenue has many Nas which in reality are equivalent to having 0
 full_data_wJSON[is.na(full_data_wJSON$transactionRevenue), "transactionRevenue"] <- 0
@@ -215,7 +191,7 @@ full_data_wJSON[, categorical] <- lapply(full_data_wJSON[, categorical], as.fact
 
 
 #converting into numeric
-numeric <- c("hits", "pageviews", "visitNumber", "transactionRevenue", "visits", 'fullVisitorId')
+numeric <- c("hits", "pageviews", "visitNumber", "transactionRevenue", "visits")
 full_data_wJSON[, numeric] <- lapply(full_data_wJSON[, numeric], as.numeric)
 
 # impute data
@@ -233,6 +209,32 @@ for (an_index in col_index) {
   full_data_wJSON[,an_index] <- as.factor(unlist(full_data_wJSON[,an_index]))
 }
 
+# reduce factor levels to 51 if more than that
+max_level <- 50
+factor_col <- c()
+for (an_index in 1:ncol(full_data_wJSON)) {
+  if (is.factor(unlist(full_data_wJSON[1,an_index]))) {
+    count_level <- length(unlist(unique(full_data_wJSON[,an_index])))
+    if (count_level > max_level) {
+      factor_col <- c(factor_col, an_index)
+    }
+  }
+}
+
+for (an_index in factor_col) {
+  count_level <- summary(full_data_wJSON[,an_index], maxsum=max_level)
+  top_count <- c()
+  for (a in count_level){
+    top_count <- c(top_count, trimws(unlist(strsplit(a,':'))[1]))
+  }
+  few_rows <- !(unlist(full_data_wJSON[,an_index]) %in% top_count)
+  print(sum(few_rows))
+  print(names(full_data_wJSON[few_rows,an_index]))
+  full_data_wJSON[,an_index] <- as.character(unlist(full_data_wJSON[,an_index]))
+  full_data_wJSON[few_rows,an_index] <- 'Other'
+  full_data_wJSON[,an_index] <- as.factor(unlist(full_data_wJSON[,an_index]))
+}
+
 #converting date column to date format 
 
 #full_data_wJSON$date<- as.Date(as.character(full_data_wJSON$date), format ='%Y%m%d')
@@ -244,10 +246,64 @@ test<- full_data_wJSON %>% filter(DataSplit=="Testing")
 
 save(train,file = "train.Rdata")
 save(test,file = "test.Rdata")
+
+rm(full_data_wJSON)
+gc()
 #
 #load("train.Rdata")
 #load("test.Rdata") 
 
+# random forest
+set.seed(123)
+drop_column <- c('visitId', 'DataSplit', 'date')
+# split data for validation
+train_idx <- sample(1:nrow(train), 280000)
+use_train <- train[train_idx,!(names(train) %in% drop_column)]
+use_valid <- train[-train_idx, !(names(train) %in% drop_column)]
+y_index <- which(colnames(use_train) == 'transactionRevenue')
+id_index <- which(colnames(use_train) == 'fullVisitorId')
+x_train <- use_train[,-c(y_index,id_index)]
+y_train <- unlist(use_train[,y_index])
+x_valid <- use_valid[,-c(y_index,id_index)]
+y_valid <- unlist(use_valid[,y_index])
+# random forest
+classifier_1 = randomForest(x = x_train,
+                            y = y_train,
+                            ntree = 100, importance=TRUE)
+# predict validation set
+y_predict <- predict(classifier_1, newdata=x_valid)
+mse <- mean((y_predict - y_valid)^2)
+rse <- sqrt(mse)
 
+# train the model using all the data
+train_idx <- sample(1:nrow(train), nrow(train))
+use_train <- train[train_idx,!(names(train) %in% drop_column)]
+classifier = randomForest(x = use_train[,-c(y_index,id_index)],
+                          y = unlist(use_train[,y_index]),
+                          ntree = 100, importance=TRUE)
 
+# prediction on test set
+test_idx <- sample(1:nrow(test), nrow(test))
+use_test <- test[test_idx,!names(test) %in% drop_column]
+y_index <- which(colnames(use_test) == 'transactionRevenue')
+id_index <- which(colnames(use_test) == 'fullVisitorId')
+use_test[,y_index] <- predict(classifier, newdata = use_test[,-c(y_index, id_index)])
+use_test[use_test[,y_index] < 0,y_index] <- 0
+output <- use_test[,c('fullVisitorId','transactionRevenue')]
+colnames(output) <- c('fullVisitorId', 'PredictedLogRevenue')
 
+# get the mean value for the same fullVisitorId
+new_output <- output %>%
+  group_by(fullVisitorId) %>%
+  summarise_at(vars(-fullVisitorId), funs(mean(., na.rm=TRUE)))
+write.csv(new_output, file='predicted.csv', row.names = F)
+
+# feature importance
+var_importance <- as.data.frame(importance(classifier))
+write.csv(var_importance, 'feature_importance.csv')
+varImpPlot(classifier)
+
+# convert the result to log value
+#prediction <- read.csv('predicted_random_forest.csv')
+prediction$PredictedLogRevenue<- log(prediction$PredictedLogRevenue)
+write.csv(prediction, 'final_submit_RF.csv')
